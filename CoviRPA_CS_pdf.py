@@ -18,6 +18,7 @@ print(f"\n\n\n#시작시간 : {start_time.strftime('%H:%M:%S')}\n")
 # 다운로드 경로 설정
 download_dir = "C:\\Users\\jhlee6\\OneDrive - Covision\\21 CSreport\\PDF"
 
+
 # Chrome 옵션 설정
 options = Options()
 options.add_argument('--start-maximized')  # 창을 최대화 상태로 시작
