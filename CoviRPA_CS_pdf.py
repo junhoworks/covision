@@ -24,8 +24,6 @@ options.add_argument('--start-maximized')  # 창을 최대화 상태로 시작
 options.add_argument('user-data-dir=C:\\user_data\\junho')  # 사용자 데이터 경로
 options.add_argument('disable-blink-features=AutomationControlled')  # 자동화 탐지 방지
 options.add_experimental_option('detach', True)  # 브라우저 창이 닫히지 않도록 설정2.3 CS영업_ACR(활동).pdf
-
-
 options.add_experimental_option('excludeSwitches', ['enable-logging'])  # 불필요한 로그 제거
 
 
@@ -50,6 +48,7 @@ def delete_existing_file(file_name, download_dir):
             os.remove(file_path) # 기존 파일 삭제
         except Exception as e:
             print("ERROR")
+
 
 
 # 시트 열고 PDF 저장
@@ -101,7 +100,7 @@ def open_and_save_sheet(sheet_url, file_name, load_time, driver):
         print("OK")
 
 
-# 시트 URL, 파일명, 로딩 타임 (초 단위) 목록
+# 시트 URL, 파일명, 로딩타임(초) 목록
 sheet_info = [
     ('https://docs.google.com/spreadsheets/d/1VrZ2KBT10uGW6b4RZ0t4nxWmwCP6V3etfka3Rhyhh1M/edit?gid=840451947#gid=840451947', '1.1 조직_OS(조직현황).pdf', 10),
     ('https://docs.google.com/spreadsheets/d/1VrZ2KBT10uGW6b4RZ0t4nxWmwCP6V3etfka3Rhyhh1M/edit?gid=1991745721#gid=1991745721', '1.2 조직_OC(조직도).pdf', 7),

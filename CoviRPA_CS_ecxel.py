@@ -294,7 +294,6 @@ if __name__ == "__main__":
     ]
 
     try:
-
         # 로그인 및 출력
         print("\nLOGIN .......................", end=" ")
         login(driver, USER_ID, PASSWORD)
@@ -318,7 +317,6 @@ if __name__ == "__main__":
         print("OK")
 
     finally:
-
         # 마무리 작업
         print("CLOSE .......................", end=" ")
         driver.quit()  #브라우저 종료
