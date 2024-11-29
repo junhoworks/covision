@@ -8,8 +8,6 @@ from datetime import datetime
 import time
 import os
 
-
-
 # [초기화] 드라이버 (브라우저, 다운로드 폴더)
 def setup_driver(download_dir):
     options = Options()
