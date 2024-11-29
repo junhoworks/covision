@@ -101,7 +101,7 @@ def open_and_save_sheet(sheet_url, file_name, load_time, driver):
         print("OK")
 
 
-# 시트 URL, 파일명, 로딩 타임 (초 단위) 목록
+# 시트 URL, 파일명, 로딩타임(초) 목록
 sheet_info = [
     ('https://docs.google.com/spreadsheets/d/1VrZ2KBT10uGW6b4RZ0t4nxWmwCP6V3etfka3Rhyhh1M/edit?gid=840451947#gid=840451947', '1.1 조직_OS(조직현황).pdf', 10),
     ('https://docs.google.com/spreadsheets/d/1VrZ2KBT10uGW6b4RZ0t4nxWmwCP6V3etfka3Rhyhh1M/edit?gid=1991745721#gid=1991745721', '1.2 조직_OC(조직도).pdf', 7),
