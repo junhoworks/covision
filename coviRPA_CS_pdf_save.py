@@ -55,11 +55,12 @@ def download_pdf(driver, page_url, file_keyword, loading_time, save_time):
         # 2. 다운로드 메뉴 클릭
         download_menu = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@role='menuitem' and .//span[text()='다운로드']]")))
         download_menu.click()
+        time.sleep(1)  # 잠시 대기
 
         # 3. PDF 문서 옵션 클릭
         pdf_option = wait.until(EC.element_to_be_clickable((By.XPATH, "//span[contains(@aria-label, 'PDF')]")))
         pdf_option.click()
-        time.sleep(2)  # 잠시 대기
+        time.sleep(1)  # 잠시 대기
 
         # 4. 내보내기 버튼 클릭
         send_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//span[text()='내보내기']")))
@@ -144,30 +145,30 @@ if __name__ == "__main__":
 
 
         # 3.1 CS사업
-        {'task_name': '3.1 CS사업_BP(사업계획)','file_keyword': 'BP(계획)','loading_time': 12, 'save_time': 3,
+        {'task_name': '3.1 CS사업_BP(사업계획)','file_keyword': 'BP(계획)','loading_time': 12, 'save_time': 4,
          'page_url': 'https://docs.google.com/spreadsheets/d/1_jTUNxq8KGL7TIjySLb6zEcLFxzrG-sos8KKqCVNRWY/edit?gid=1685053532#gid=1685053532'},
 
-        {'task_name': '3.2 CS사업_BA(사업실적)','file_keyword': 'BA(실적)','loading_time': 4, 'save_time': 3,
+        {'task_name': '3.2 CS사업_BA(사업실적)','file_keyword': 'BA(실적)','loading_time': 5, 'save_time': 4,
          'page_url': 'https://docs.google.com/spreadsheets/d/1_jTUNxq8KGL7TIjySLb6zEcLFxzrG-sos8KKqCVNRWY/edit?gid=158339800#gid=158339800'},
 
-        {'task_name': '3.3 CS사업_AW(주간실적)','file_keyword': 'AW(주간)','loading_time': 4, 'save_time': 5,
+        {'task_name': '3.3 CS사업_AW(주간실적)','file_keyword': 'AW(주간)','loading_time': 5, 'save_time': 5,
          'page_url': 'https://docs.google.com/spreadsheets/d/1_jTUNxq8KGL7TIjySLb6zEcLFxzrG-sos8KKqCVNRWY/edit?gid=338286996#gid=338286996'},
 
-        {'task_name': '3.4 CS사업_AM(월간실적)','file_keyword': 'AM(월간)','loading_time': 4, 'save_time': 3,
+        {'task_name': '3.4 CS사업_AM(월간실적)','file_keyword': 'AM(월간)','loading_time': 5, 'save_time': 4,
          'page_url': 'https://docs.google.com/spreadsheets/d/1_jTUNxq8KGL7TIjySLb6zEcLFxzrG-sos8KKqCVNRWY/edit?gid=1061543899#gid=1061543899'},
 
-        {'task_name': '3.5 CS사업_MC(월별계약)','file_keyword': 'MC(계약)','loading_time': 4, 'save_time': 3,
+        {'task_name': '3.5 CS사업_MC(월별계약)','file_keyword': 'MC(계약)','loading_time': 5, 'save_time': 4,
          'page_url': 'https://docs.google.com/spreadsheets/d/1_jTUNxq8KGL7TIjySLb6zEcLFxzrG-sos8KKqCVNRWY/edit?gid=1157221142#gid=1157221142'},
 
-        {'task_name': '3.6 CS사업_MU(투입)','file_keyword': 'MU(투입)','loading_time': 4, 'save_time': 3,
+        {'task_name': '3.6 CS사업_MU(투입)','file_keyword': 'MU(투입)','loading_time': 5, 'save_time': 3,
          'page_url': 'https://docs.google.com/spreadsheets/d/1XSv9GF6bpOaM9ktuYGRF7G3mh0d-OQUkzKSagCh_nvY/edit?gid=1687816592#gid=1687816592'},
 
-        {'task_name': '3.7 CS사업_PU(투입)','file_keyword': 'PU(투입)','loading_time': 4, 'save_time': 3,
+        {'task_name': '3.7 CS사업_PU(투입)','file_keyword': 'PU(투입)','loading_time': 5, 'save_time': 3,
          'page_url': 'https://docs.google.com/spreadsheets/d/1XSv9GF6bpOaM9ktuYGRF7G3mh0d-OQUkzKSagCh_nvY/edit?gid=747947134#gid=747947134'},
 
 
         # 4.1 SCC분석
-        {'task_name': '4.1 SCC분석_CA(고객분석)','file_keyword': 'CA(고객)','loading_time': 12, 'save_time': 5,
+        {'task_name': '4.1 SCC분석_CA(고객분석)','file_keyword': 'CA(고객)','loading_time': 10, 'save_time': 5,
          'page_url': 'https://docs.google.com/spreadsheets/d/1zc8Ozo55mplrRfK5ZMqbZhrlLov29WeuF7C5RM_r0ro/edit?gid=1759861482#gid=1759861482'},
 
         {'task_name': '4.2 SCC분석_MA(담당분석)','file_keyword': 'MA(담당)','loading_time': 8, 'save_time': 3,
