@@ -8,6 +8,10 @@ from datetime import datetime
 import time
 import os
 
+
+# 다운로드 폴더 설정
+download_dir = r"C:\Users\jhlee6\OneDrive - Covision\21 CSreport\Excel"
+
 # [초기화] 드라이버 (브라우저, 다운로드 폴더)
 def setup_driver(download_dir):
     options = Options()
@@ -234,13 +238,10 @@ if __name__ == "__main__":
     USER_ID = 'jhlee6'
     PASSWORD = 'ewq3412!4520'
 
-    # 다운로드 폴더 설정
-    download_dir = r"C:\Users\jhlee6\OneDrive - Covision\21 CSreport\Excel"
-
     # 드라이버 초기화 (브라우저, 다운로드 폴더)
     driver = setup_driver(download_dir)
 
-    # 작업 대상 설정 (작업이름, URL, 검색버튼 XPATH, 데이터 XPATH)
+    # 작업 목록 (작업이름, URL, 검색버튼 XPATH, 데이터 XPATH, 검색키워드)
     download_tasks = [
         {
             "task_name": "1.수주조회",
