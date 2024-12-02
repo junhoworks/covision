@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from datetime import datetime
 from selenium import webdriver
@@ -7,25 +8,31 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
+from dotenv import load_dotenv, set_key
 
 
-# 다운로드 폴더 설정
-download_dir = r"C:\Users\jhlee6\OneDrive - Covision\21 CSreport\Excel"
+# 환경 변수 로드
+ENV_FILE_PATH = r"C:\user_data\junho\.env"
+load_dotenv(dotenv_path=ENV_FILE_PATH)
+USER_ID = os.getenv("USER_ID")
+PASSWORD = os.getenv("PASSWORD")
+EXCEL_DIR = os.getenv("EXCEL_DIR")  # EXCEL_DIR 디렉토리 설정
 
 
 # Chrome WebDriver를 초기화하고 다운로드 경로 설정
-def setup_driver(download_dir):
+def setup_driver(EXCEL_DIR):
     options = Options()
     options.add_argument('--start-maximized')
+    options.add_argument("user-data-dir=C:\\user_data\\junho")
     options.add_experimental_option('detach', True)
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-    # 다운로드 폴더 설정
+    # 다운로드 디렉토리 설정
     prefs = {
-        "download.default_directory": download_dir,  # 다운로드 폴더 경로
-        "download.prompt_for_download": False,       # 다운로드 대화 상자 비활성화
-        "download.directory_upgrade": True,          # 다운로드 경로 업그레이드 허용
-        "safebrowsing.enabled": True                 # 안전 브라우징 기능 활성화
+        "download.default_directory": EXCEL_DIR,  # EXCEL_DIR 디렉토리 설정
+        "download.prompt_for_download": False,    # 다운로드 대화 상자 비활성화
+        "download.directory_upgrade": True,       # 기존 다운로드 경로 업데이트 허용
+        "safebrowsing.enabled": True,             # 안전 브라우징 활성화
     }
     options.add_experimental_option("prefs", prefs)
 
@@ -33,11 +40,13 @@ def setup_driver(download_dir):
     return webdriver.Chrome(options=options)
 
 
-# 다운로드 폴더 초기화
-def clear_download_folder(download_dir):  
-    for file in os.listdir(download_dir):
-        file_path = os.path.join(download_dir, file)
+# 다운로드 디렉토리 초기화
+def clear_download_folder(EXCEL_DIR):
+    print(f"Excel 디렉토리 초기화 ...", end = " ")
+    for file in os.listdir(EXCEL_DIR):
+        file_path = os.path.join(EXCEL_DIR, file)
         os.remove(file_path)
+    print("ok")
 
 
 # 지정된 요소를 대기하고 반환
@@ -50,101 +59,84 @@ def wait_for_element_clickable(driver, by, locator, timeout=30):
     return WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((by, locator)))
 
 
-# 다운로드 파일 확인 및 파일명 변경 (1)
-# def wait_for_download_and_rename(download_dir, file_keyword, task_name, max_wait_time=30):
-#     try:
-#         elapsed_time = 0
-#         downloaded_file = None
-
-#         while elapsed_time < max_wait_time:
-#             files = [f for f in os.listdir(download_dir) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
-#             # files = [f for f in os.listdir(download_dir) if file_keyword in f and not f.endswith('.crdownload')] # 문제 있음.
-          
-#             if files:
-#                 downloaded_file = files[0]
-#                 break
-#             time.sleep(1)
-#             elapsed_time += 1
-
-#         if not downloaded_file: raise FileNotFoundError(f"- {file_keyword} : (!)파일 없음")
-
-#         old_file_path = os.path.join(download_dir, downloaded_file)
-#         new_file_path = os.path.join(download_dir, task_name + os.path.splitext(downloaded_file)[1])
-
-#         if os.path.exists(new_file_path): os.remove(new_file_path)
-#         os.rename(old_file_path, new_file_path)
-
-#     except Exception as e: raise Exception(f"- {file_keyword} : (!)파일명 변경 오류")
-
-
-# 다운로드 파일 확인 및 파일명 변경 (2)
-def wait_for_download_and_rename(download_dir, file_keyword, task_name, max_wait_time=30):
+# 다운로드 파일 확인 및 파일명 변경
+def wait_for_download_and_rename(EXCEL_DIR, file_keyword, task_name, max_wait_time=30):
     try:
-        # 다운로드 파일 확인
-        max_wait_time = 30  # 최대 대기 시간 (초)
         elapsed_time = 0
         downloaded_file = None
 
+        # 다운로드 파일명 확인
         while elapsed_time < max_wait_time:
-            # 다운로드 폴더에서 파일 검색
-            files = [f for f in os.listdir(download_dir) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
-            # files = [f for f in os.listdir(download_dir) if file_keyword in f and not f.endswith('.crdownload')] # 문제 있음.
+            files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
+            # files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and not f.endswith('.crdownload')]
+
             if files:
                 downloaded_file = files[0]  # 매칭된 첫 번째 파일
                 break
-
             time.sleep(1)  # 1초 대기
             elapsed_time += 1
 
         if not downloaded_file:
-            return f"- {file_keyword} : 실패"
+            return f"← {file_keyword} ... (error) 파일 없음"
+        
+        old_file_path = os.path.join(EXCEL_DIR, downloaded_file)
+        new_file_path = os.path.join(EXCEL_DIR, task_name + os.path.splitext(downloaded_file)[1])
 
         # 파일명 변경
-        old_file_path = os.path.join(download_dir, downloaded_file)
-        old_file_extension = os.path.splitext(old_file_path)[1]
-        new_file_path = os.path.join(download_dir, f"{task_name}{old_file_extension}")
-
-        if os.path.exists(new_file_path):  # 동일한 이름의 파일이 이미 존재하면 삭제
-            os.remove(new_file_path)
+        if os.path.exists(new_file_path):
+            os.remove(new_file_path)  # 동일 파일명 삭제
 
         os.rename(old_file_path, new_file_path)
 
-    except Exception as e: raise Exception(f"- {file_keyword} : (!)파일명 변경 오류")    
+        # 파일 사이즈 리턴
+        file_size = os.path.getsize(new_file_path)  # 바이트 단위
+        file_size_kb = round(file_size / 1024)  # KB 단위로 변환
+
+        return "", f"{file_size_kb:,}KB"
+    
+    except Exception as e: return f"- {file_keyword} : (error) 파일명 변경 실패"
 
 
 # 로그인
 def login(driver, user_id, password):
-    driver.get('https://gw4j.covision.co.kr')
+    print("LOGIN ...", end=" ")
     try:
-        # 사용자 ID 입력 (ID 1차 확인 페이지가 있을 경우) - 불필요 시 주석 처리 할것
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, 'compositeAccount'))
-        ).send_keys(user_id)
+        driver.get('https://gw4j.covision.co.kr')
 
-        # 다음 버튼 클릭 (ID 1차 확인 페이지가 있을 경우) - 불필요 시 주석 처리 할것
-        driver.find_element(By.CLASS_NAME, 'btnLogin.btnCompositeNext').click()
+        # ID 확인 페이지
+        try:
+            composite_field = wait_for_element_presence(driver, By.ID, 'compositeAccount', timeout=3)
+            composite_field.send_keys(user_id)
 
-        # # 사용자 ID 입력 (ID 1차 확인 페이지가 없을 경우) - 불필요 시 주석 처리 할것
-        # WebDriverWait(driver, 10).until(
-        #     EC.presence_of_element_located((By.ID, 'id'))
-        # ).send_keys(user_id)
+            next_button = wait_for_element_presence(driver, By.CLASS_NAME, 'btnLogin.btnCompositeNext', timeout=5)
+            next_button.click()
 
-        # 비밀번호 입력
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, 'password'))
-        ).send_keys(password)
+        except Exception:
 
-        # 로그인 버튼 클릭
-        driver.find_element(By.CLASS_NAME, 'btnLogin.btnInputLogin').click()
+            # 로그인 페이지     
+            id_field = wait_for_element_presence(driver, By.ID, 'id', timeout=10)
+            id_field.send_keys(user_id)
+
+            password_field = wait_for_element_presence(driver, By.ID, 'password', timeout=10)
+            password_field.send_keys(password)
+
+            login_button = wait_for_element_presence(driver, By.CLASS_NAME, 'btnLogin.btnInputLogin', timeout=10)
+            login_button.click()
+
+            time.sleep(5)  # 로그인 후 메인 페이지 팝업창 로딩 대기 시간
+            print("ok")
+            return True
+
     except Exception as e:
-        print(f"(!)로그인 오류")
-        driver.quit()
+        print("(error) 로그인 실패")
+        sys.exit(1)  # 시스템 오류 종료
+
 
 
 # 작업 실행
 def tasks_action(driver, task_name, file_keyword, search_button_xpath, data_xpath, page_url):
     driver.get(page_url)  # 페이지 로드
-    extracted_data = 0
+    current_data = "0"
     try:
         if task_name == '6.근태조회':  # 6.근태조회 (예외 작업)
             # 엑셀저장 버튼 클릭
@@ -220,23 +212,26 @@ def tasks_action(driver, task_name, file_keyword, search_button_xpath, data_xpat
 
             # 5.조회 건수 데이터 추출
             data_element = wait_for_element_presence(driver, By.XPATH, data_xpath)
-            extracted_data = data_element.text    
+            current_data = data_element.text    
+
+        previous_data = os.getenv(task_name, "0")  # 이전 데이터 가져오기
+        set_key(ENV_FILE_PATH, task_name, current_data)  # 현재 데이터 저장
 
         # 다운로드 파일 확인 및 파일명 변경
-        wait_for_download_and_rename(download_dir, file_keyword, task_name)
-        return f"- {file_keyword} : 완료 ({extracted_data})"
+        rename_result, file_size_kb = wait_for_download_and_rename(EXCEL_DIR, file_keyword, task_name)
+
+        if rename_result:  # 오류 메시지가 반환된 경우
+            return rename_result  # 오류 메시지 반환        
+
+        return f"{file_size_kb} ← {file_keyword} ({current_data} ← {previous_data})"  # 성공 메시지 반환
         
-    except Exception as e: return "(!)작업 실행 오류"
+    except Exception as e:
+        print("(error) 작업 실행 실패")
+        sys.exit(1)  # 시스템 오류 종료
 
 
 # Main
-if __name__ == "__main__":
-    
-    start_time = datetime.now()
-    print(f"\n\n\ndownload_folder initialize")
-    clear_download_folder(download_dir)  # 다운로드 폴더 초기화
-    driver = setup_driver(download_dir)  # 드라이버 초기화 (브라우저, 다운로드 폴더)
-    print("-------------------------------------------")
+if __name__ == "__main__":    
 
     # 작업 목록
     task_list = [        
@@ -285,27 +280,25 @@ if __name__ == "__main__":
     ]
 
     try:
-
-        # 로그인
-        print("0.LOGIN :", end=" ")
-        login(driver, 'jhlee6', 'ewq3412!4520')        
-        time.sleep(5)  # 로그인 후 메인 페이지 팝업창 로딩 대기 시간
-        print("완료")
+        print("\n\n\n" + "─" * 60)
+        start_time = datetime.now()
+        driver = setup_driver(EXCEL_DIR)  # 드라이버 초기화 (브라우저, 다운로드 디렉토리)
+        login(driver, USER_ID, PASSWORD)  # 로그인
+        clear_download_folder(EXCEL_DIR)  # 다운로드 디렉토리 초기화
 
         # 작업 지시
+        print("─" * 60)        
         for task in task_list:
             print(f"{task['task_name']}", end=" ")
             result = tasks_action(driver, task["task_name"], task["file_keyword"], task["search_button_xpath"], task["data_xpath"], task["page_url"])
             print(f"{result}")
 
     finally:
-        # WebDriver 종료
-        driver.quit()
-
-        # 시간 출력 (시작, 종료, 실행)
-        print("-------------------------------------------")
+        print("─" * 60)
         end_time = datetime.now()
         elapsed_time = end_time - start_time
         print(f"[시작시간] {start_time.strftime('%H:%M:%S')}")
         print(f"[종료시간] {end_time.strftime('%H:%M:%S')}")
         print(f"[실행시간] {str(elapsed_time).split('.')[0]}\n\n\n")
+        driver.quit()  # WebDriver 종료
+        sys.exit(0)  # 시스템 정상 종료
