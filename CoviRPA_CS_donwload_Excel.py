@@ -11,6 +11,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from dotenv import load_dotenv, set_key
 
+# 터미널 초기화
+os.system('cls' if os.name == 'nt' else 'clear')
 
 # 환경 변수 로드
 ENV_FILE_PATH = r"C:\user_data\junho\.env"
@@ -18,7 +20,6 @@ load_dotenv(dotenv_path=ENV_FILE_PATH)
 USER_ID = os.getenv("USER_ID")
 PASSWORD = os.getenv("PASSWORD")
 EXCEL_DIR = os.getenv("EXCEL_DIR")  # EXCEL_DIR 디렉토리 설정
-
 
 # Chrome WebDriver를 초기화하고 다운로드 경로 설정
 def setup_driver(EXCEL_DIR):
@@ -36,161 +37,70 @@ def setup_driver(EXCEL_DIR):
         "safebrowsing.enabled": True,             # 안전 브라우징 활성화
     }
     options.add_experimental_option("prefs", prefs)
-
-    # WebDriver 생성
-    return webdriver.Chrome(options=options)
-
+    return webdriver.Chrome(options=options)  # WebDriver 생성
 
 # 다운로드 디렉토리 초기화
 def clear_download_folder(EXCEL_DIR):
-    print(f"Excel 디렉토리 초기화 ...", end = " ")
-
     try:
         for file in os.listdir(EXCEL_DIR):
             file_path = os.path.join(EXCEL_DIR, file)
             os.remove(file_path)
-        print("ok")
-    except Exception as e: return f" (error) 실패"
+        print("Directory initialization successful")
 
+    except Exception as e:
+        print("(!)Directory initialization failed")
 
 # 지정된 요소를 대기하고 반환
 def wait_for_element_presence(driver, by, locator, timeout=30):
     return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((by, locator)))
 
-
 # 클릭 가능한 요소를 대기하고 반환
 def wait_for_element_clickable(driver, by, locator, timeout=30):
     return WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((by, locator)))
 
-
-# # 다운로드 파일 처리 : 1.확인, 2.파일명 변경, 3.xls 변환, 4.행열 삭제
-# def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, col_del_count, max_wait_time=30):
-#     try:
-#         elapsed_time = 0
-#         downloaded_file = None
-
-#         # 1.확인
-#         while elapsed_time < max_wait_time:
-#             files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
-#             # files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and not f.endswith('.crdownload')]
-
-#             if files:
-#                 downloaded_file = files[0]  # 매칭된 첫 번째 파일
-#                 break
-#             time.sleep(1)  # 1초 대기
-#             elapsed_time += 1
-
-#         if not downloaded_file:
-#             return f"← {file_keyword} ... (error) 파일 없음"
-
-#         old_file_path = os.path.join(EXCEL_DIR, downloaded_file)
-#         new_file_path = os.path.join(EXCEL_DIR, task_name + os.path.splitext(downloaded_file)[1])
-
-#         # 2.파일명 변경
-#         if os.path.exists(new_file_path):
-#             os.remove(new_file_path)  # 동일 파일명 삭제
-
-#         os.rename(old_file_path, new_file_path)
-
-#         try:
-#             # 3.행열 삭제
-#             excel = win32com.client.Dispatch("Excel.Application")  # pywin32를 사용해 엑셀 파일 열기
-#             excel.Visible = False
-#             excel.DisplayAlerts = False
-
-#             wb = excel.Workbooks.Open(new_file_path)
-#             sheet = wb.Sheets(1)  # 첫 번째 시트 선택
-
-#             # 삭제 행 및 헤더 행 제외 한 데이터 행 수 계산
-#             data_rows = sheet.UsedRange.Rows.Count - (row_del_count + 1)
-
-#             if row_del_count > 0:  # 행 삭제 (첫 번째 행부터 지정된 갯수만큼 삭제)
-#                 for i in range(row_del_count):
-#                     sheet.Rows(1).Delete()
-
-#             if col_del_count > 0:  # 열 삭제 (첫 번째 열부터 지정된 갯수만큼 삭제)
-#                 for i in range(col_del_count):
-#                     sheet.Columns(1).Delete()
-
-#             wb.SaveAs(new_file_path, FileFormat=51)  # 51 = xlOpenXMLWorkbook (xlsx 형식으로 저장)
-#             time.sleep(2)  # 처리 대기 시간
-#             wb.Close()
-#             excel.Quit()
-
-#             # 4.xls 변환 (.xls → .xlsx)
-#             if new_file_path.lower().endswith('.xls'):
-#                 converted_file_path = new_file_path.replace('.xls', '.xlsx')
-
-#                 excel = win32com.client.Dispatch("Excel.Application") # pywin32를 사용해 엑셀 파일 열기
-#                 excel.Visible = False
-#                 excel.DisplayAlerts = False
-
-#                 wb = excel.Workbooks.Open(new_file_path)
-
-#                 sheet = wb.Sheets(1)  # 첫 번째 시트 선택
-#                 if sheet.UsedRange.Rows.Count <= 1 and sheet.UsedRange.Columns.Count <= 1:
-#                     wb.Close(SaveChanges=False)
-#                     excel.Quit()
-#                     return f"← {file_keyword} : (error) 데이터 없음"
-
-#                 wb.SaveAs(converted_file_path, FileFormat=51)  # 51 = xlOpenXMLWorkbook
-#                 wb.Close()
-#                 excel.Quit()
-
-#                 # .xls 파일 삭제
-#                 os.remove(new_file_path)
-#                 new_file_path = converted_file_path  # 변환된 .xlsx 파일 경로로 업데이트
-
-#         except Exception as e:
-#             excel.Quit()
-#             return f"← {downloaded_file} : (error) 파일 처리 실패: {e}"
-
-#         # 파일 사이즈 리턴
-#         file_size = os.path.getsize(new_file_path)  # 바이트 단위
-#         file_size_kb = round(file_size / 1024)  # KB 단위로 변환
-
-#         return "", f"{file_size_kb:,}KB", f"{data_rows:,}"
-
-#     except Exception as e: return f"- {file_keyword} : (error) 파일명 변경 실패"
-
+# 요소 대기 및 반환
+# def wait_for_element(driver, by, locator, condition, timeout=30):
+#     return WebDriverWait(driver, timeout).until(condition((by, locator)))
 
 # 다운로드 파일 처리
 def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, col_del_count, max_wait_time=30):
     """
-    작업순서 : 1.파일 확인, 2.파일명 변경, 3.데이터 건수 계산 및 행/열 삭제, 4.xls 변환
+    작업순서 : 1.파일 확인, 2.파일명 변경, 3.데이터 건수 계산 및 행/열 삭제, 4.xls 변환, 5.파일 사이즈 및 데이터 건수 리턴
     """
     try:
         elapsed_time = 0
         downloaded_file = None
+        # time.sleep(2)  # 다운로드 대기 시간
 
         # 1.파일 확인
         while elapsed_time < max_wait_time:
             files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
+            # files = [f for f in os.listdir(PDF_DIR) if file_keyword in f and not f.endswith('.crdownload')]
             if files:
                 downloaded_file = files[0]  # 매칭된 첫 번째 파일
                 break
-            time.sleep(1)  # 1초 대기
+            time.sleep(1)
             elapsed_time += 1
 
         if not downloaded_file:
-            return f"← {file_keyword} ... (error) 파일 없음"
+            return f"← {file_keyword} ... (!)File does not exist"
 
-        old_file_path = os.path.join(EXCEL_DIR, downloaded_file)
-        new_file_path = os.path.join(EXCEL_DIR, task_name + os.path.splitext(downloaded_file)[1])
+        old_path = os.path.join(EXCEL_DIR, downloaded_file)
+        new_path = os.path.join(EXCEL_DIR, task_name + os.path.splitext(downloaded_file)[1])
 
         # 2.파일명 변경
-        if os.path.exists(new_file_path):
-            os.remove(new_file_path)  # 동일 파일명 삭제
-        os.rename(old_file_path, new_file_path)
+        if os.path.exists(new_path):
+            os.remove(new_path)  # 동일 파일명 삭제
+        os.rename(old_path, new_path)
 
         try:
             # 3.데이터 건수 계산 및 행/열 삭제
             excel = win32com.client.Dispatch("Excel.Application")  # pywin32로 엑셀 파일 열기
             excel.Visible = False
             excel.DisplayAlerts = False
-
-            wb = excel.Workbooks.Open(new_file_path)
+            wb = excel.Workbooks.Open(new_path)
             sheet = wb.Sheets(1)  # 첫 번째 시트 선택
+
             data_rows = sheet.UsedRange.Rows.Count - (row_del_count + 1)  # 데이터 건수 계산(삭제 행, 헤더 행 제외)
 
             if row_del_count > 0:  # 행 삭제
@@ -201,47 +111,46 @@ def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, c
                 for i in range(col_del_count):
                     sheet.Columns(1).Delete()
 
-            wb.SaveAs(new_file_path, FileFormat=51)  # xlsx 형식으로 저장
+            wb.SaveAs(new_path, FileFormat=51)  # xlsx 형식으로 저장
+            time.sleep(2)  # 처리 대기 시간
             wb.Close()
 
             # 4.xls 변환(.xls → .xlsx)
-            if new_file_path.lower().endswith('.xls'):
-                converted_file_path = new_file_path.replace('.xls', '.xlsx')
+            if new_path.lower().endswith('.xls'):
+                converted_file_path = new_path.replace('.xls', '.xlsx')
 
-                wb = excel.Workbooks.Open(new_file_path)
+                wb = excel.Workbooks.Open(new_path)
                 sheet = wb.Sheets(1)  # 첫 번째 시트 선택
 
-                if sheet.UsedRange.Rows.Count <= 1 and sheet.UsedRange.Columns.Count <= 1:
-                    wb.Close(SaveChanges=False)
-                    excel.Quit()
-                    return f"← {file_keyword} : (error) 데이터 없음"
+                # if sheet.UsedRange.Rows.Count <= 1 and sheet.UsedRange.Columns.Count <= 1:
+                #     wb.Close(SaveChanges=False)
+                #     excel.Quit()
+                #     return f"← {file_keyword} : (error) 데이터 없음"
 
                 wb.SaveAs(converted_file_path, FileFormat=51)  # 51 = xlOpenXMLWorkbook
                 wb.Close()
 
                 # .xls 파일 삭제
-                os.remove(new_file_path)
-                new_file_path = converted_file_path  # 변환된 파일로 업데이트
+                os.remove(new_path)
+                time.sleep(2)  # 처리 대기 시간
+                new_path = converted_file_path  # 변환된 파일로 업데이트
 
         except Exception as e:
             excel.Quit()
-            return f"← {downloaded_file} : (error) 파일 처리 실패: {e}"
+            return f"← {downloaded_file} : (!)File conversion processing failed"
 
-        # 엑셀 종료
         excel.Quit()
 
-        # 파일 사이즈 리턴
-        file_size = os.path.getsize(new_file_path)  # 바이트 단위
+        # 5.파일 사이즈 및 데이터 건수 리턴
+        file_size = os.path.getsize(new_path)  # 바이트 단위
         file_size_kb = round(file_size / 1024)  # KB 단위로 변환
 
         return "", f"{file_size_kb:,}KB", f"{data_rows:,}"
 
-    except Exception as e: return f"- {file_keyword} : (error) 파일명 변경 실패"
+    except Exception as e: return f"- {file_keyword} : (!)File rename processing failed"
 
-
-# 로그인
-def login(driver, user_id, password):
-    print("LOGIN ...", end=" ")
+# 로그인 처리
+def process_login(driver, user_id, password):
     try:
         driver.get('https://gw4j.covision.co.kr')
 
@@ -266,16 +175,15 @@ def login(driver, user_id, password):
             login_button.click()
 
             time.sleep(5)  # 로그인 후 메인 페이지 팝업창 로딩 대기 시간
-            print("ok")
+            print("Login successful")
             return True
 
     except Exception as e:
-        print("(error) 로그인 실패")
+        print("(!)Login failed")
         sys.exit(1)  # 시스템 오류 종료
 
-
-# 작업 실행
-def tasks_action(driver, task_name, file_keyword, row_del_count, col_del_count, search_button_xpath, page_url):
+# 작업 처리
+def process_task(driver, task_name, file_keyword, row_del_count, col_del_count, search_button_xpath, page_url):
     driver.get(page_url)  # 페이지 로드
     current_data = "0"
     try:
@@ -371,9 +279,7 @@ def tasks_action(driver, task_name, file_keyword, row_del_count, col_del_count, 
         return f"{file_size_kb} ← {file_keyword} ({current_data} ← {previous_data})"  # 성공 메시지 반환
 
     except Exception as e:
-        print("(error) 작업 실행 실패", e)
-        sys.exit(1)  # 시스템 오류 종료
-
+        print("(!)Task execution failed")
 
 # Main
 if __name__ == "__main__":
@@ -417,33 +323,32 @@ if __name__ == "__main__":
         }
     ]
 
+    driver = setup_driver(EXCEL_DIR)  # 드라이버 초기화
     try:
-        print("\n\n\n" + "─" * 60)
+        print("─" * 70)
         start_time = datetime.now()
-        driver = setup_driver(EXCEL_DIR)  # 드라이버 초기화 (브라우저, 다운로드 디렉토리)
-        login(driver, USER_ID, PASSWORD)  # 로그인
+        process_login(driver, USER_ID, PASSWORD)  # 로그인
         clear_download_folder(EXCEL_DIR)  # 다운로드 디렉토리 초기화
+        print("─" * 70)
 
-        # 작업 지시
-        print("─" * 60)
         for task in task_list:
             print(f"{task['task_name']}", end=" ")
-            result = tasks_action(
-                        driver,
-                        task["task_name"],
-                        task["file_keyword"],
-                        task["row_del_count"],
-                        task["col_del_count"],
-                        task["search_button_xpath"],
-                        task["page_url"])
+            result = process_task(
+                                    driver,
+                                    task["task_name"],
+                                    task["file_keyword"],
+                                    task["row_del_count"],
+                                    task["col_del_count"],
+                                    task["search_button_xpath"],
+                                    task["page_url"]
+                                )
             print(f"{result}")
 
     finally:
-        print("─" * 60)
+        print("─" * 70)
         end_time = datetime.now()
         elapsed_time = end_time - start_time
         print(f"[시작시간] {start_time.strftime('%H:%M:%S')}")
         print(f"[종료시간] {end_time.strftime('%H:%M:%S')}")
-        print(f"[실행시간] {str(elapsed_time).split('.')[0]}\n\n\n")
+        print(f"[실행시간] {str(elapsed_time).split('.')[0]}")
         driver.quit()  # WebDriver 종료
-        sys.exit(0)  # 시스템 정상 종료
