@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import win32com.client
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -43,10 +44,13 @@ def setup_driver(EXCEL_DIR):
 # 다운로드 디렉토리 초기화
 def clear_download_folder(EXCEL_DIR):
     print(f"Excel 디렉토리 초기화 ...", end = " ")
-    for file in os.listdir(EXCEL_DIR):
-        file_path = os.path.join(EXCEL_DIR, file)
-        os.remove(file_path)
-    print("ok")
+
+    try:
+        for file in os.listdir(EXCEL_DIR):
+            file_path = os.path.join(EXCEL_DIR, file)
+            os.remove(file_path)
+        print("ok")
+    except Exception as e: return f" (error) 실패"
 
 
 # 지정된 요소를 대기하고 반환
@@ -59,17 +63,109 @@ def wait_for_element_clickable(driver, by, locator, timeout=30):
     return WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((by, locator)))
 
 
-# 다운로드 파일 확인 및 파일명 변경
-def wait_for_download_and_rename(EXCEL_DIR, file_keyword, task_name, max_wait_time=30):
+# # 다운로드 파일 처리 : 1.확인, 2.파일명 변경, 3.xls 변환, 4.행열 삭제
+# def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, col_del_count, max_wait_time=30):
+#     try:
+#         elapsed_time = 0
+#         downloaded_file = None
+
+#         # 1.확인
+#         while elapsed_time < max_wait_time:
+#             files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
+#             # files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and not f.endswith('.crdownload')]
+
+#             if files:
+#                 downloaded_file = files[0]  # 매칭된 첫 번째 파일
+#                 break
+#             time.sleep(1)  # 1초 대기
+#             elapsed_time += 1
+
+#         if not downloaded_file:
+#             return f"← {file_keyword} ... (error) 파일 없음"
+
+#         old_file_path = os.path.join(EXCEL_DIR, downloaded_file)
+#         new_file_path = os.path.join(EXCEL_DIR, task_name + os.path.splitext(downloaded_file)[1])
+
+#         # 2.파일명 변경
+#         if os.path.exists(new_file_path):
+#             os.remove(new_file_path)  # 동일 파일명 삭제
+
+#         os.rename(old_file_path, new_file_path)
+
+#         try:
+#             # 3.행열 삭제
+#             excel = win32com.client.Dispatch("Excel.Application")  # pywin32를 사용해 엑셀 파일 열기
+#             excel.Visible = False
+#             excel.DisplayAlerts = False
+
+#             wb = excel.Workbooks.Open(new_file_path)
+#             sheet = wb.Sheets(1)  # 첫 번째 시트 선택
+
+#             # 삭제 행 및 헤더 행 제외 한 데이터 행 수 계산
+#             data_rows = sheet.UsedRange.Rows.Count - (row_del_count + 1)
+
+#             if row_del_count > 0:  # 행 삭제 (첫 번째 행부터 지정된 갯수만큼 삭제)
+#                 for i in range(row_del_count):
+#                     sheet.Rows(1).Delete()
+
+#             if col_del_count > 0:  # 열 삭제 (첫 번째 열부터 지정된 갯수만큼 삭제)
+#                 for i in range(col_del_count):
+#                     sheet.Columns(1).Delete()
+
+#             wb.SaveAs(new_file_path, FileFormat=51)  # 51 = xlOpenXMLWorkbook (xlsx 형식으로 저장)
+#             time.sleep(2)  # 처리 대기 시간
+#             wb.Close()
+#             excel.Quit()
+
+#             # 4.xls 변환 (.xls → .xlsx)
+#             if new_file_path.lower().endswith('.xls'):
+#                 converted_file_path = new_file_path.replace('.xls', '.xlsx')
+
+#                 excel = win32com.client.Dispatch("Excel.Application") # pywin32를 사용해 엑셀 파일 열기
+#                 excel.Visible = False
+#                 excel.DisplayAlerts = False
+
+#                 wb = excel.Workbooks.Open(new_file_path)
+
+#                 sheet = wb.Sheets(1)  # 첫 번째 시트 선택
+#                 if sheet.UsedRange.Rows.Count <= 1 and sheet.UsedRange.Columns.Count <= 1:
+#                     wb.Close(SaveChanges=False)
+#                     excel.Quit()
+#                     return f"← {file_keyword} : (error) 데이터 없음"
+
+#                 wb.SaveAs(converted_file_path, FileFormat=51)  # 51 = xlOpenXMLWorkbook
+#                 wb.Close()
+#                 excel.Quit()
+
+#                 # .xls 파일 삭제
+#                 os.remove(new_file_path)
+#                 new_file_path = converted_file_path  # 변환된 .xlsx 파일 경로로 업데이트
+
+#         except Exception as e:
+#             excel.Quit()
+#             return f"← {downloaded_file} : (error) 파일 처리 실패: {e}"
+
+#         # 파일 사이즈 리턴
+#         file_size = os.path.getsize(new_file_path)  # 바이트 단위
+#         file_size_kb = round(file_size / 1024)  # KB 단위로 변환
+
+#         return "", f"{file_size_kb:,}KB", f"{data_rows:,}"
+
+#     except Exception as e: return f"- {file_keyword} : (error) 파일명 변경 실패"
+
+
+# 다운로드 파일 처리
+def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, col_del_count, max_wait_time=30):
+    """
+    작업순서 : 1.파일 확인, 2.파일명 변경, 3.데이터 건수 계산 및 행/열 삭제, 4.xls 변환
+    """
     try:
         elapsed_time = 0
         downloaded_file = None
 
-        # 다운로드 파일명 확인
+        # 1.파일 확인
         while elapsed_time < max_wait_time:
             files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
-            # files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and not f.endswith('.crdownload')]
-
             if files:
                 downloaded_file = files[0]  # 매칭된 첫 번째 파일
                 break
@@ -78,22 +174,68 @@ def wait_for_download_and_rename(EXCEL_DIR, file_keyword, task_name, max_wait_ti
 
         if not downloaded_file:
             return f"← {file_keyword} ... (error) 파일 없음"
-        
+
         old_file_path = os.path.join(EXCEL_DIR, downloaded_file)
         new_file_path = os.path.join(EXCEL_DIR, task_name + os.path.splitext(downloaded_file)[1])
 
-        # 파일명 변경
+        # 2.파일명 변경
         if os.path.exists(new_file_path):
             os.remove(new_file_path)  # 동일 파일명 삭제
-
         os.rename(old_file_path, new_file_path)
+
+        try:
+            # 3.데이터 건수 계산 및 행/열 삭제
+            excel = win32com.client.Dispatch("Excel.Application")  # pywin32로 엑셀 파일 열기
+            excel.Visible = False
+            excel.DisplayAlerts = False
+
+            wb = excel.Workbooks.Open(new_file_path)
+            sheet = wb.Sheets(1)  # 첫 번째 시트 선택
+            data_rows = sheet.UsedRange.Rows.Count - (row_del_count + 1)  # 데이터 건수 계산(삭제 행, 헤더 행 제외)
+
+            if row_del_count > 0:  # 행 삭제
+                for i in range(row_del_count):
+                    sheet.Rows(1).Delete()
+
+            if col_del_count > 0:  # 열 삭제
+                for i in range(col_del_count):
+                    sheet.Columns(1).Delete()
+
+            wb.SaveAs(new_file_path, FileFormat=51)  # xlsx 형식으로 저장
+            wb.Close()
+
+            # 4.xls 변환(.xls → .xlsx)
+            if new_file_path.lower().endswith('.xls'):
+                converted_file_path = new_file_path.replace('.xls', '.xlsx')
+
+                wb = excel.Workbooks.Open(new_file_path)
+                sheet = wb.Sheets(1)  # 첫 번째 시트 선택
+
+                if sheet.UsedRange.Rows.Count <= 1 and sheet.UsedRange.Columns.Count <= 1:
+                    wb.Close(SaveChanges=False)
+                    excel.Quit()
+                    return f"← {file_keyword} : (error) 데이터 없음"
+
+                wb.SaveAs(converted_file_path, FileFormat=51)  # 51 = xlOpenXMLWorkbook
+                wb.Close()
+
+                # .xls 파일 삭제
+                os.remove(new_file_path)
+                new_file_path = converted_file_path  # 변환된 파일로 업데이트
+
+        except Exception as e:
+            excel.Quit()
+            return f"← {downloaded_file} : (error) 파일 처리 실패: {e}"
+
+        # 엑셀 종료
+        excel.Quit()
 
         # 파일 사이즈 리턴
         file_size = os.path.getsize(new_file_path)  # 바이트 단위
         file_size_kb = round(file_size / 1024)  # KB 단위로 변환
 
-        return "", f"{file_size_kb:,}KB"
-    
+        return "", f"{file_size_kb:,}KB", f"{data_rows:,}"
+
     except Exception as e: return f"- {file_keyword} : (error) 파일명 변경 실패"
 
 
@@ -113,7 +255,7 @@ def login(driver, user_id, password):
 
         except Exception:
 
-            # 로그인 페이지     
+            # 로그인 페이지
             id_field = wait_for_element_presence(driver, By.ID, 'id', timeout=10)
             id_field.send_keys(user_id)
 
@@ -132,39 +274,45 @@ def login(driver, user_id, password):
         sys.exit(1)  # 시스템 오류 종료
 
 
-
 # 작업 실행
-def tasks_action(driver, task_name, file_keyword, search_button_xpath, data_xpath, page_url):
+def tasks_action(driver, task_name, file_keyword, row_del_count, col_del_count, search_button_xpath, page_url):
     driver.get(page_url)  # 페이지 로드
     current_data = "0"
     try:
-        if task_name == '6.근태조회':  # 6.근태조회 (예외 작업)
-            # 엑셀저장 버튼 클릭
+        if task_name == '6.근태조회':
+            """
+            작업순서 : 1.엑셀저장 버튼 클릭, 2.iframe으로 전환, 3.select 박스에서 옵션 선택, 4.체크박스 선택 (입출입기록 체크박스), 5.팝업 내 엑셀저장 버튼 클릭, 6.iframe에서 기본 콘텐츠로 복귀
+            """
+            # 1. 엑셀저장 버튼 클릭
             excel_button = wait_for_element_clickable(driver, By.XPATH, '//*[@id="excelBtn"]')
             excel_button.click()
 
-            # iframe으로 전환
+            # 2.iframe으로 전환
             iframe = wait_for_element_presence(driver, By.ID, 'AttendUserStatusPopup_if')
             driver.switch_to.frame(iframe)
 
-            # select 박스에서 옵션 선택
+            # 3.select 박스에서 옵션 선택
             select_element = wait_for_element_presence(driver, By.ID, 'excelDownType')
             select = Select(select_element)
             select.select_by_value('M')  # value 속성값으로 선택 (월간)
 
-            # 체크박스 선택 (입출입기록 체크박스)
+            # 4.체크박스 선택 (입출입기록 체크박스)
             check_box = wait_for_element_clickable(driver, By.ID, 'dataMode3')
             if not check_box.is_selected():
                 check_box.click()
 
-            # 팝업 내 엑셀저장 버튼 클릭
+            # 5.팝업 내 엑셀저장 버튼 클릭
             popup_excel_button = wait_for_element_clickable(driver, By.XPATH, '/html/body/div[1]/div/div[2]/a')
             popup_excel_button.click()
 
-            # iframe에서 기본 콘텐츠로 복귀
+            # 6.iframe에서 기본 콘텐츠로 복귀
             driver.switch_to.default_content()
 
-        elif task_name == '7.타임시트':  # 7.타임시트 (예외 작업)
+        elif task_name == '7.타임시트':
+            """
+            작업순서 : 1.달력 아이콘 클릭, 2.(1월) 클릭, 3.확인 버튼 클릭, 4.엑셀 저장 버튼 클릭
+            """
+            time.sleep(2) # 대기 시간
 
             # 1.달력 아이콘 클릭
             calendar_button = wait_for_element_clickable(driver, By.XPATH, '//*[@id="inputBasic_AX_EndDate_AX_dateHandle"]')
@@ -177,17 +325,17 @@ def tasks_action(driver, task_name, file_keyword, search_button_xpath, data_xpat
             # 3.확인 버튼 클릭
             ok_button = wait_for_element_clickable(driver, By.XPATH, '//*[@id="inputBasic_AX_EndDate_AX_closeButton"]')
             ok_button.click()
-            
-            time.sleep(5) # 데이터 로드 대기 시간
+            time.sleep(3) # 대기 시간
 
-            # 4. 엑셀 저장 버튼 클릭
+            # 4.엑셀 저장 버튼 클릭
             excel_button = wait_for_element_clickable(driver, By.XPATH, '//*[@id="divFilterBox"]/span[3]/button')
             driver.execute_script("arguments[0].click();", excel_button)  # JavaScript로 클릭
 
-            time.sleep(2) # 데이터 로드 대기 시간
-
-        else:  # 1,2,3,4,5.작업
-            if task_name == '5.견적조회':
+        else:  # 일반 작업
+            """
+            작업순서 : 1.시작일 초기화 및 설정, 2.검색 버튼 클릭, 3.엑셀저장 버튼 클릭, 4.엑셀 다운로드 팝업 확인 버튼 클릭
+            """
+            if task_name == '5.견적조회':  # 견적 tab 선택
                 tab_element = wait_for_element_clickable(driver, By.XPATH, '//*[@id="content"]/div[2]/div/ul/li[7]/a')
                 driver.execute_script("arguments[0].click();", tab_element)
 
@@ -210,73 +358,63 @@ def tasks_action(driver, task_name, file_keyword, search_button_xpath, data_xpat
             popup_ok = wait_for_element_presence(driver, By.ID, 'popup_ok')
             popup_ok.click()
 
-            # 5.조회 건수 데이터 추출
-            data_element = wait_for_element_presence(driver, By.XPATH, data_xpath)
-            current_data = data_element.text    
+        # 다운로드 파일 처리 함수 호출
+        rename_result, file_size_kb, current_data = process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, col_del_count)
 
-        previous_data = os.getenv(task_name, "0")  # 이전 데이터 가져오기
-        set_key(ENV_FILE_PATH, task_name, current_data)  # 현재 데이터 저장
-
-        # 다운로드 파일 확인 및 파일명 변경
-        rename_result, file_size_kb = wait_for_download_and_rename(EXCEL_DIR, file_keyword, task_name)
+        # 환경 변수에 엑셀 데이터 건수 가져오기 및 저장
+        previous_data = os.getenv(task_name, "0")  # 이전 엑셀 데이터 건수 가져오기
+        set_key(ENV_FILE_PATH, task_name, current_data)  # 현재 엑셀 데이터 건수 저장
 
         if rename_result:  # 오류 메시지가 반환된 경우
-            return rename_result  # 오류 메시지 반환        
+            return rename_result  # 오류 메시지 반환
 
         return f"{file_size_kb} ← {file_keyword} ({current_data} ← {previous_data})"  # 성공 메시지 반환
-        
+
     except Exception as e:
-        print("(error) 작업 실행 실패")
+        print("(error) 작업 실행 실패", e)
         sys.exit(1)  # 시스템 오류 종료
 
 
 # Main
-if __name__ == "__main__":    
+if __name__ == "__main__":
 
     # 작업 목록
-    task_list = [        
+    task_list = [
         {
-            "task_name": "1.수주조회", "file_keyword": "ordered",
+            "task_name": "1.수주조회", "file_keyword": "ordered", "row_del_count": 0, "col_del_count": 0,
             "search_button_xpath": '//*[@id="content"]/div[2]/div/div[1]/div/div[4]/a',
-            "data_xpath": '//*[@id="listGrid_AX_gridStatus"]/b',
             "page_url": "https://gw4j.covision.co.kr/bizmnt/layout/bizmnt_orderedList.do?CLSYS=bizmnt&CLMD=user&CLBIZ=BizMnt&menuID=334"
         },
         {
-            "task_name": "2.인정실적", "file_keyword": "sales",
+            "task_name": "2.인정실적", "file_keyword": "sales", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="content"]/div[2]/div/div[1]/div/div[2]/a',
-            "data_xpath": '//*[@id="spnSumRecognition"]',            
             "page_url": "https://gw4j.covision.co.kr/bizmnt/layout/bizmnt_salesPerformList.do?CLSYS=bizmnt&CLMD=user&CLBIZ=BizMnt&menuID=403"
         },
         {
-            "task_name": "3.영업활동", "file_keyword": "active",
+            "task_name": "3.영업활동", "file_keyword": "active", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="btnSearch1"]',
-            "data_xpath": '//*[@id="listGrid_AX_gridStatus"]/b',            
             "page_url": "https://gw4j.covision.co.kr/crm/layout/crm_active.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=70975"
         },
         {
-            "task_name": "4.영업기회", "file_keyword": "chance",
+            "task_name": "4.영업기회", "file_keyword": "chance", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="btnSearch2"]',
-            "data_xpath": '//*[@id="listGrid_AX_gridStatus"]/b',
             "page_url": "https://gw4j.covision.co.kr/crm/layout/crm_chanceList.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=70978"
         },
         {
-            "task_name": "5.견적조회", "file_keyword": "Estimate",
+            "task_name": "5.견적조회", "file_keyword": "Estimate", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="btnSearch2"]',
-            "data_xpath": '//*[@id="listGrid_AX_gridStatus"]/b',
             "page_url": "https://gw4j.covision.co.kr/crm/layout/crm_admin_basic_main.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=71044&menuCode=BoardMain"
         },
         {
-            "task_name": "6.근태조회", "file_keyword": "Attend",
+            "task_name": "6.근태조회", "file_keyword": "Attend", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '',
-            "data_xpath": '',
             "page_url": "https://gw4j.covision.co.kr/groupware/layout/attend_AttendUserStatusList.do?CLSYS=attend&CLMD=user&CLBIZ=Attend&menuCode=EasyView"
         },
         {
-            "task_name": "7.타임시트", "file_keyword": "프로젝트",
+            "task_name": "7.타임시트", "file_keyword": "프로젝트", "row_del_count": 0, "col_del_count": 0,
             "search_button_xpath": '',
-            "data_xpath": '',
             "page_url": "https://gw4j.covision.co.kr/workreport/workreport/workreportteamproject.do?mnp=9%7C10"
-        }        
+        }
     ]
 
     try:
@@ -287,10 +425,17 @@ if __name__ == "__main__":
         clear_download_folder(EXCEL_DIR)  # 다운로드 디렉토리 초기화
 
         # 작업 지시
-        print("─" * 60)        
+        print("─" * 60)
         for task in task_list:
             print(f"{task['task_name']}", end=" ")
-            result = tasks_action(driver, task["task_name"], task["file_keyword"], task["search_button_xpath"], task["data_xpath"], task["page_url"])
+            result = tasks_action(
+                        driver,
+                        task["task_name"],
+                        task["file_keyword"],
+                        task["row_del_count"],
+                        task["col_del_count"],
+                        task["search_button_xpath"],
+                        task["page_url"])
             print(f"{result}")
 
     finally:

@@ -58,6 +58,8 @@ class WebDriverApp:
 
             self.update_message("웹 페이지 로딩 완료!")
 
+            self.update_message("언제까지 Hello World 만 찍을거야?\n 놀지 말고 너도 개발을 해!")
+
         except Exception as e:
             self.update_message(f"오류 발생: {e}")
 
