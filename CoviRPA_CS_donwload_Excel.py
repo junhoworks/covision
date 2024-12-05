@@ -13,13 +13,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from dotenv import load_dotenv, set_key
 
-# 시작
+print("coviRPA_CS_download_Excel")
+start_time = datetime.now()
 os.system('cls' if os.name == 'nt' else 'clear')
 
 # 환경 변수 로드
 ENV_FILE_PATH = r"C:\user_data\junho\.env"
 load_dotenv(dotenv_path=ENV_FILE_PATH)
-ENV_SITE_URL = os.getenv("SITE_URL")
+ENV_SITE_URL = os.getenv("EXCEL_SITE_URL")
 ENV_USER_ID = os.getenv("USER_ID")
 ENV_PASSWORD = os.getenv("PASSWORD")
 ENV_DIRECTORY = os.getenv("EXCEL_DIR")
@@ -120,7 +121,6 @@ def process_downloaded_file(file_keyword, task_name, row_del_count, col_del_coun
     try:
         elapsed_time = 0
         downloaded_file = None
-        time.sleep(2)  # 다운로드 대기 시간
 
         # 1.파일 확인
         while elapsed_time < max_wait_time:
@@ -150,7 +150,7 @@ def process_downloaded_file(file_keyword, task_name, row_del_count, col_del_coun
             excel.DisplayAlerts = False
             wb = excel.Workbooks.Open(new_path)
             sheet = wb.Sheets(1)  # 첫 번째 시트 선택
-            # time.sleep(2)  # 처리 대기 시간
+            time.sleep(2)  # 처리 대기 시간
             # data_rows = sheet.UsedRange.Rows.Count - (row_del_count + 1)  # 데이터 건수 계산(삭제 행, 헤더 행 제외)
 
             if row_del_count > 0:  # 행 삭제
@@ -161,10 +161,9 @@ def process_downloaded_file(file_keyword, task_name, row_del_count, col_del_coun
                 for i in range(col_del_count):
                     sheet.Columns(1).Delete()
 
-            time.sleep(1)  # 처리 대기 시간
+            time.sleep(2)  # 처리 대기 시간
             data_rows = sheet.UsedRange.Rows.Count - 1  # 데이터 건수 계산(삭제 행, 헤더 행 제외)
             wb.SaveAs(new_path, FileFormat=51)  # xlsx 형식으로 저장
-            # time.sleep(2)  # 처리 대기 시간
             wb.Close()
 
             # 4.xls 변환(.xls → .xlsx)
@@ -204,13 +203,13 @@ def process_downloaded_file(file_keyword, task_name, row_del_count, col_del_coun
 
 # 작업 처리
 def process_task(task_name, file_keyword, row_del_count, col_del_count, search_button_xpath, page_url):
+    """
+    작업순서 : 1.엑셀저장 버튼 클릭, 2.iframe으로 전환, 3.select 박스에서 옵션 선택, 4.체크박스 선택 (입출입기록 체크박스), 5.팝업 내 엑셀저장 버튼 클릭, 6.iframe에서 기본 콘텐츠로 복귀
+    """
     driver.get(ENV_SITE_URL + page_url)  # URL 로드
     current_data = "0"
     try:
         if task_name == '6.근태조회':
-            """
-            작업순서 : 1.엑셀저장 버튼 클릭, 2.iframe으로 전환, 3.select 박스에서 옵션 선택, 4.체크박스 선택 (입출입기록 체크박스), 5.팝업 내 엑셀저장 버튼 클릭, 6.iframe에서 기본 콘텐츠로 복귀
-            """
             # 1. 엑셀저장 버튼 클릭
             excel_button = wait_for_element_clickable(driver, By.XPATH, '//*[@id="excelBtn"]')
             excel_button.click()
@@ -287,16 +286,15 @@ def process_task(task_name, file_keyword, row_del_count, col_del_count, search_b
             popup_ok = wait_for_element_presence(driver, By.ID, 'popup_ok')
             popup_ok.click()
 
-        # 다운로드 파일 처리
-        process_downloaded_file_result, file_size_kb, current_data = process_downloaded_file(file_keyword, task_name, row_del_count, col_del_count)
-
         # 환경 변수에 엑셀 데이터 건수 가져오기 및 저장
         previous_data = os.getenv(task_name, "0")  # 이전 엑셀 데이터 건수 가져오기
         set_key(ENV_FILE_PATH, task_name, current_data)  # 현재 엑셀 데이터 건수 저장
 
-        if process_downloaded_file_result:  # 다운로드 파일 처리 오류 메시지가 반환된 경우
-            return process_downloaded_file_result
+        # 다운로드 파일 처리
+        error_result, file_size_kb, current_data = process_downloaded_file(file_keyword, task_name, row_del_count, col_del_count)
 
+        if error_result:  # 오류 메시지가 반환된 경우
+            return error_result  # 오류 메시지 반환
         return f"{file_size_kb} ← {file_keyword} ({current_data} ← {previous_data})"  # 성공 메시지 반환
 
     except Exception as e:
@@ -347,7 +345,6 @@ if __name__ == "__main__":
     # driver = setup_driver(ENV_DIRECTORY)  # 드라이버 초기화
     try:
         print("─" * 70)
-        start_time = datetime.now()
         driver = process_login()  # 로그인 처리
         clear_download_folder()  # 다운로드 디렉토리 초기화
         print("─" * 70)
