@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import bcrypt
+import getpass
 import win32com.client
 from datetime import datetime
 from selenium import webdriver
@@ -11,18 +13,19 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from dotenv import load_dotenv, set_key
 
-# 터미널 초기화
+# 시작
 os.system('cls' if os.name == 'nt' else 'clear')
 
 # 환경 변수 로드
 ENV_FILE_PATH = r"C:\user_data\junho\.env"
 load_dotenv(dotenv_path=ENV_FILE_PATH)
-USER_ID = os.getenv("USER_ID")
-PASSWORD = os.getenv("PASSWORD")
-EXCEL_DIR = os.getenv("EXCEL_DIR")  # EXCEL_DIR 디렉토리 설정
+ENV_SITE_URL = os.getenv("SITE_URL")
+ENV_USER_ID = os.getenv("USER_ID")
+ENV_PASSWORD = os.getenv("PASSWORD")
+ENV_DIRECTORY = os.getenv("EXCEL_DIR")
 
 # Chrome WebDriver를 초기화하고 다운로드 경로 설정
-def setup_driver(EXCEL_DIR):
+def setup_driver(ENV_DIRECTORY):
     options = Options()
     options.add_argument('--start-maximized')
     options.add_argument("user-data-dir=C:\\user_data\\junho")
@@ -31,7 +34,7 @@ def setup_driver(EXCEL_DIR):
 
     # 다운로드 디렉토리 설정
     prefs = {
-        "download.default_directory": EXCEL_DIR,  # EXCEL_DIR 디렉토리 설정
+        "download.default_directory": ENV_DIRECTORY,  # ENV_DIRECTORY 디렉토리 설정
         "download.prompt_for_download": False,    # 다운로드 대화 상자 비활성화
         "download.directory_upgrade": True,       # 기존 다운로드 경로 업데이트 허용
         "safebrowsing.enabled": True,             # 안전 브라우징 활성화
@@ -39,11 +42,58 @@ def setup_driver(EXCEL_DIR):
     options.add_experimental_option("prefs", prefs)
     return webdriver.Chrome(options=options)  # WebDriver 생성
 
-# 다운로드 디렉토리 초기화
-def clear_download_folder(EXCEL_DIR):
+# 로그인 처리
+def process_login():
     try:
-        for file in os.listdir(EXCEL_DIR):
-            file_path = os.path.join(EXCEL_DIR, file)
+        """
+        작업순서 : 1.인증, 2.ID 확인 페이지 접속, 3.로그인 페이지 접속
+        """
+         # 1.인증
+        input_password = getpass.getpass("Input password : ")
+        hashed_password = bytes(ENV_PASSWORD.strip(), encoding='utf-8')
+        time.sleep(1)
+
+        if bcrypt.checkpw(input_password.encode(), hashed_password):
+            print("Authentication successful")
+        else:
+            print("(!)Authentication failed")
+            sys.exit()
+
+        # 2.ID 확인 페이지 접속
+        driver = setup_driver(ENV_DIRECTORY)  # 드라이버 초기화
+        driver.get(ENV_SITE_URL)  # URL 로드
+        try:
+            composite_field = wait_for_element_presence(driver, By.ID, 'compositeAccount', timeout=3)
+            composite_field.send_keys(ENV_USER_ID)
+
+            next_button = wait_for_element_presence(driver, By.CLASS_NAME, 'btnLogin.btnCompositeNext', timeout=5)
+            next_button.click()
+
+        except Exception:
+
+            # 3.로그인 페이지 접속
+            id_field = wait_for_element_presence(driver, By.ID, 'id', timeout=10)
+            id_field.send_keys(ENV_USER_ID)
+
+            password_field = wait_for_element_presence(driver, By.ID, 'password', timeout=10)
+            password_field.send_keys(input_password)
+
+            login_button = wait_for_element_presence(driver, By.CLASS_NAME, 'btnLogin.btnInputLogin', timeout=10)
+            login_button.click()
+
+            time.sleep(5)  # 로그인 후 메인 페이지 팝업창 로딩 대기 시간
+            print("Login successful")
+            return driver
+
+    except Exception as e:
+        print("(!)Login process failed")
+        sys.exit(1)  # 시스템 오류 종료
+
+# 다운로드 디렉토리 초기화
+def clear_download_folder():
+    try:
+        for file in os.listdir(ENV_DIRECTORY):
+            file_path = os.path.join(ENV_DIRECTORY, file)
             os.remove(file_path)
         print("Directory initialization successful")
 
@@ -63,19 +113,19 @@ def wait_for_element_clickable(driver, by, locator, timeout=30):
 #     return WebDriverWait(driver, timeout).until(condition((by, locator)))
 
 # 다운로드 파일 처리
-def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, col_del_count, max_wait_time=30):
+def process_downloaded_file(file_keyword, task_name, row_del_count, col_del_count, max_wait_time=30):
     """
-    작업순서 : 1.파일 확인, 2.파일명 변경, 3.데이터 건수 계산 및 행/열 삭제, 4.xls 변환, 5.파일 사이즈 및 데이터 건수 리턴
+    작업순서 : 1.파일 확인, 2.파일명 변경, # 3.행/열 삭제 및 데이터 건수 계산, 4.xls 변환, 5.파일 사이즈 및 데이터 건수 리턴
     """
     try:
         elapsed_time = 0
         downloaded_file = None
-        # time.sleep(2)  # 다운로드 대기 시간
+        time.sleep(2)  # 다운로드 대기 시간
 
         # 1.파일 확인
         while elapsed_time < max_wait_time:
-            files = [f for f in os.listdir(EXCEL_DIR) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
-            # files = [f for f in os.listdir(PDF_DIR) if file_keyword in f and not f.endswith('.crdownload')]
+            files = [f for f in os.listdir(ENV_DIRECTORY) if file_keyword in f and f.lower().endswith(('.xlsx', '.xls'))]
+            # files = [f for f in os.listdir(ENV_DIRECTORY) if file_keyword in f and not f.endswith('.crdownload')]
             if files:
                 downloaded_file = files[0]  # 매칭된 첫 번째 파일
                 break
@@ -85,8 +135,8 @@ def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, c
         if not downloaded_file:
             return f"← {file_keyword} ... (!)File does not exist"
 
-        old_path = os.path.join(EXCEL_DIR, downloaded_file)
-        new_path = os.path.join(EXCEL_DIR, task_name + os.path.splitext(downloaded_file)[1])
+        old_path = os.path.join(ENV_DIRECTORY, downloaded_file)
+        new_path = os.path.join(ENV_DIRECTORY, task_name + os.path.splitext(downloaded_file)[1])
 
         # 2.파일명 변경
         if os.path.exists(new_path):
@@ -94,14 +144,14 @@ def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, c
         os.rename(old_path, new_path)
 
         try:
-            # 3.데이터 건수 계산 및 행/열 삭제
+            # 3.행/열 삭제 및 데이터 건수 계산
             excel = win32com.client.Dispatch("Excel.Application")  # pywin32로 엑셀 파일 열기
             excel.Visible = False
             excel.DisplayAlerts = False
             wb = excel.Workbooks.Open(new_path)
             sheet = wb.Sheets(1)  # 첫 번째 시트 선택
-
-            data_rows = sheet.UsedRange.Rows.Count - (row_del_count + 1)  # 데이터 건수 계산(삭제 행, 헤더 행 제외)
+            # time.sleep(2)  # 처리 대기 시간
+            # data_rows = sheet.UsedRange.Rows.Count - (row_del_count + 1)  # 데이터 건수 계산(삭제 행, 헤더 행 제외)
 
             if row_del_count > 0:  # 행 삭제
                 for i in range(row_del_count):
@@ -111,8 +161,10 @@ def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, c
                 for i in range(col_del_count):
                     sheet.Columns(1).Delete()
 
+            time.sleep(1)  # 처리 대기 시간
+            data_rows = sheet.UsedRange.Rows.Count - 1  # 데이터 건수 계산(삭제 행, 헤더 행 제외)
             wb.SaveAs(new_path, FileFormat=51)  # xlsx 형식으로 저장
-            time.sleep(2)  # 처리 대기 시간
+            # time.sleep(2)  # 처리 대기 시간
             wb.Close()
 
             # 4.xls 변환(.xls → .xlsx)
@@ -128,17 +180,18 @@ def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, c
                 #     return f"← {file_keyword} : (error) 데이터 없음"
 
                 wb.SaveAs(converted_file_path, FileFormat=51)  # 51 = xlOpenXMLWorkbook
+                time.sleep(2)  # 처리 대기 시간
                 wb.Close()
 
                 # .xls 파일 삭제
                 os.remove(new_path)
-                time.sleep(2)  # 처리 대기 시간
                 new_path = converted_file_path  # 변환된 파일로 업데이트
 
         except Exception as e:
             excel.Quit()
             return f"← {downloaded_file} : (!)File conversion processing failed"
 
+        time.sleep(1)  # 처리 대기 시간
         excel.Quit()
 
         # 5.파일 사이즈 및 데이터 건수 리턴
@@ -149,42 +202,9 @@ def process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, c
 
     except Exception as e: return f"- {file_keyword} : (!)File rename processing failed"
 
-# 로그인 처리
-def process_login(driver, user_id, password):
-    try:
-        driver.get('https://gw4j.covision.co.kr')
-
-        # ID 확인 페이지
-        try:
-            composite_field = wait_for_element_presence(driver, By.ID, 'compositeAccount', timeout=3)
-            composite_field.send_keys(user_id)
-
-            next_button = wait_for_element_presence(driver, By.CLASS_NAME, 'btnLogin.btnCompositeNext', timeout=5)
-            next_button.click()
-
-        except Exception:
-
-            # 로그인 페이지
-            id_field = wait_for_element_presence(driver, By.ID, 'id', timeout=10)
-            id_field.send_keys(user_id)
-
-            password_field = wait_for_element_presence(driver, By.ID, 'password', timeout=10)
-            password_field.send_keys(password)
-
-            login_button = wait_for_element_presence(driver, By.CLASS_NAME, 'btnLogin.btnInputLogin', timeout=10)
-            login_button.click()
-
-            time.sleep(5)  # 로그인 후 메인 페이지 팝업창 로딩 대기 시간
-            print("Login successful")
-            return True
-
-    except Exception as e:
-        print("(!)Login failed")
-        sys.exit(1)  # 시스템 오류 종료
-
 # 작업 처리
-def process_task(driver, task_name, file_keyword, row_del_count, col_del_count, search_button_xpath, page_url):
-    driver.get(page_url)  # 페이지 로드
+def process_task(task_name, file_keyword, row_del_count, col_del_count, search_button_xpath, page_url):
+    driver.get(ENV_SITE_URL + page_url)  # URL 로드
     current_data = "0"
     try:
         if task_name == '6.근태조회':
@@ -250,7 +270,8 @@ def process_task(driver, task_name, file_keyword, row_del_count, col_del_count, 
             # 1.시작일 초기화 및 설정
             start_date_field = wait_for_element_presence(driver, By.ID, 'txtStartDt')
             start_date_field.clear()
-            start_date_field.send_keys('2008.01.01')
+            time.sleep(1)  # 처리 대기 시간
+            start_date_field.send_keys('20080101')
 
             # 2.검색 버튼 클릭
             search_button = wait_for_element_clickable(driver, By.XPATH, search_button_xpath)
@@ -266,20 +287,20 @@ def process_task(driver, task_name, file_keyword, row_del_count, col_del_count, 
             popup_ok = wait_for_element_presence(driver, By.ID, 'popup_ok')
             popup_ok.click()
 
-        # 다운로드 파일 처리 함수 호출
-        rename_result, file_size_kb, current_data = process_downloaded_file(EXCEL_DIR, file_keyword, task_name, row_del_count, col_del_count)
+        # 다운로드 파일 처리
+        process_downloaded_file_result, file_size_kb, current_data = process_downloaded_file(file_keyword, task_name, row_del_count, col_del_count)
 
         # 환경 변수에 엑셀 데이터 건수 가져오기 및 저장
         previous_data = os.getenv(task_name, "0")  # 이전 엑셀 데이터 건수 가져오기
         set_key(ENV_FILE_PATH, task_name, current_data)  # 현재 엑셀 데이터 건수 저장
 
-        if rename_result:  # 오류 메시지가 반환된 경우
-            return rename_result  # 오류 메시지 반환
+        if process_downloaded_file_result:  # 다운로드 파일 처리 오류 메시지가 반환된 경우
+            return process_downloaded_file_result
 
         return f"{file_size_kb} ← {file_keyword} ({current_data} ← {previous_data})"  # 성공 메시지 반환
 
     except Exception as e:
-        print("(!)Task execution failed")
+        return "(!)Task execution failed"
 
 # Main
 if __name__ == "__main__":
@@ -289,52 +310,51 @@ if __name__ == "__main__":
         {
             "task_name": "1.수주조회", "file_keyword": "ordered", "row_del_count": 0, "col_del_count": 0,
             "search_button_xpath": '//*[@id="content"]/div[2]/div/div[1]/div/div[4]/a',
-            "page_url": "https://gw4j.covision.co.kr/bizmnt/layout/bizmnt_orderedList.do?CLSYS=bizmnt&CLMD=user&CLBIZ=BizMnt&menuID=334"
+            "page_url": "bizmnt/layout/bizmnt_orderedList.do?CLSYS=bizmnt&CLMD=user&CLBIZ=BizMnt&menuID=334"
         },
         {
             "task_name": "2.인정실적", "file_keyword": "sales", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="content"]/div[2]/div/div[1]/div/div[2]/a',
-            "page_url": "https://gw4j.covision.co.kr/bizmnt/layout/bizmnt_salesPerformList.do?CLSYS=bizmnt&CLMD=user&CLBIZ=BizMnt&menuID=403"
+            "page_url": "bizmnt/layout/bizmnt_salesPerformList.do?CLSYS=bizmnt&CLMD=user&CLBIZ=BizMnt&menuID=403"
         },
         {
             "task_name": "3.영업활동", "file_keyword": "active", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="btnSearch1"]',
-            "page_url": "https://gw4j.covision.co.kr/crm/layout/crm_active.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=70975"
+            "page_url": "crm/layout/crm_active.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=70975"
         },
         {
             "task_name": "4.영업기회", "file_keyword": "chance", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="btnSearch2"]',
-            "page_url": "https://gw4j.covision.co.kr/crm/layout/crm_chanceList.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=70978"
+            "page_url": "crm/layout/crm_chanceList.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=70978"
         },
         {
             "task_name": "5.견적조회", "file_keyword": "Estimate", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '//*[@id="btnSearch2"]',
-            "page_url": "https://gw4j.covision.co.kr/crm/layout/crm_admin_basic_main.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=71044&menuCode=BoardMain"
+            "page_url": "crm/layout/crm_admin_basic_main.do?CLSYS=crm&CLMD=user&CLBIZ=Crm&menuID=71044&menuCode=BoardMain"
         },
         {
             "task_name": "6.근태조회", "file_keyword": "Attend", "row_del_count": 2, "col_del_count": 1,
             "search_button_xpath": '',
-            "page_url": "https://gw4j.covision.co.kr/groupware/layout/attend_AttendUserStatusList.do?CLSYS=attend&CLMD=user&CLBIZ=Attend&menuCode=EasyView"
+            "page_url": "groupware/layout/attend_AttendUserStatusList.do?CLSYS=attend&CLMD=user&CLBIZ=Attend&menuCode=EasyView"
         },
         {
             "task_name": "7.타임시트", "file_keyword": "프로젝트", "row_del_count": 0, "col_del_count": 0,
             "search_button_xpath": '',
-            "page_url": "https://gw4j.covision.co.kr/workreport/workreport/workreportteamproject.do?mnp=9%7C10"
+            "page_url": "workreport/workreport/workreportteamproject.do?mnp=9%7C10"
         }
     ]
 
-    driver = setup_driver(EXCEL_DIR)  # 드라이버 초기화
+    # driver = setup_driver(ENV_DIRECTORY)  # 드라이버 초기화
     try:
         print("─" * 70)
         start_time = datetime.now()
-        process_login(driver, USER_ID, PASSWORD)  # 로그인
-        clear_download_folder(EXCEL_DIR)  # 다운로드 디렉토리 초기화
+        driver = process_login()  # 로그인 처리
+        clear_download_folder()  # 다운로드 디렉토리 초기화
         print("─" * 70)
 
         for task in task_list:
             print(f"{task['task_name']}", end=" ")
             result = process_task(
-                                    driver,
                                     task["task_name"],
                                     task["file_keyword"],
                                     task["row_del_count"],
@@ -343,6 +363,7 @@ if __name__ == "__main__":
                                     task["page_url"]
                                 )
             print(f"{result}")
+        driver.quit()  # WebDriver 종료
 
     finally:
         print("─" * 70)
@@ -351,4 +372,3 @@ if __name__ == "__main__":
         print(f"[시작시간] {start_time.strftime('%H:%M:%S')}")
         print(f"[종료시간] {end_time.strftime('%H:%M:%S')}")
         print(f"[실행시간] {str(elapsed_time).split('.')[0]}")
-        driver.quit()  # WebDriver 종료
